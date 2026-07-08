@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Quản Lý Kho Sợi Dệt - SLM 2026</title>
+    <!-- Thư viện SheetJS để đọc file nguồn BB25 -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <!-- Thư viện ExcelJS để xử lý file đích giữ nguyên định dạng -->
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #2563eb; --primary-dark: #1d4ed8; --primary-light: #dbeafe;
+            --success: #10b981; --success-light: #d1fae5;
+            --warning: #f59e0b; --warning-light: #fef3c7;
+            --danger: #ef4444; --danger-light: #fee2e2;
+            --info: #06b6d4; --info-light: #cffafe;
+            --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb; --gray-300: #d1d5db;
+            --gray-700: #374151; --gray-800: #1f2937; --gray-900: #111827;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh; color: var(--gray-800); line-height: 1.6;
+        }
+        .container { max-width: 1600px; margin: 0 auto; padding: 20px; display: none; }
+        
+        /* Login Overlay */
+        .login-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
+            display: flex; align-items: center; justify-content: center; z-index: 9999;
+        }
+        .login-overlay.hidden { display: none; }
+        .login-box {
+            background: white; padding: 40px; border-radius: 16px; width: 400px;
+            box-shadow: var(--shadow-xl); text-align: center;
+        }
+        .login-box h2 { margin-bottom: 10px; color: var(--gray-900); }
+        .login-box p { color: var(--gray-700); margin-bottom: 20px; }
+        .login-input {
+            width: 100%; padding: 12px 16px; margin-bottom: 12px;
+            border: 2px solid var(--gray-200); border-radius: 8px; font-size: 1rem;
+        }
+        .login-input:focus { outline: none; border-color: var(--primary); }
+        .login-btn {
+            width: 100%; padding: 12px; background: var(--primary); color: white;
+            border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 1rem;
+        }
+        .login-btn:hover { background: var(--primary-dark); }
+        .login-link { color: var(--primary); cursor: pointer; font-size: 0.9rem; text-decoration: underline; }
+        .login-error { color: var(--danger); font-size: 0.9rem; margin-bottom: 10px; display: none; }
+        
+        /* Modal */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 10000;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-box {
+            background: white; padding: 30px; border-radius: 16px; width: 450px;
+            box-shadow: var(--shadow-xl);
+        }
+        .modal-box h3 { margin-bottom: 20px; }
+
+        /* Header Styles */
+        .header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
+            color: white; padding: 40px 30px; border-radius: 16px; margin-bottom: 30px;
+            box-shadow: var(--shadow-xl); position: relative; overflow: hidden;
+        }
+        .header h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 10px; }
+        .header p { font-size: 1.1rem; opacity: 0.9; }
+        .badge-version {
+            display: inline-block; background: rgba(255, 255, 255, 0.2);
+            padding: 6px 16px; border-radius: 20px; font-size: 0.875rem; margin-top: 15px;
+        }
+        .logout-btn {
+            position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.2);
+            color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; z-index: 2;
+        }
+        .logout-btn:hover { background: rgba(255,255,255,0.3); }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            background: white; border-radius: 12px; padding: 8px; margin-bottom: 30px;
+            box-shadow: var(--shadow-lg); display: flex; gap: 4px; overflow-x: auto;
+        }
+        .nav-tab {
+            flex: 1; min-width: 150px; padding: 14px 20px; border: none; background: transparent;
+            color: var(--gray-700); font-weight: 600; font-size: 0.95rem; cursor: pointer;
+            border-radius: 8px; transition: all 0.3s ease; display: flex; align-items: center;
+            justify-content: center; gap: 8px; white-space: nowrap;
+        }
+        .nav-tab:hover { background: var(--gray-100); }
+        .nav-tab.active { background: var(--primary); color: white; box-shadow: var(--shadow-md); }
+        .nav-tab .badge {
+            background: var(--danger); color: white; padding: 2px 8px;
+            border-radius: 12px; font-size: 0.75rem; font-weight: 700;
+        }
+        .nav-tab.active .badge { background: white; color: var(--primary); }
+
+        /* Card Styles */
+        .card {
+            background: white; border-radius: 16px; padding: 30px; margin-bottom: 25px;
+            box-shadow: var(--shadow-lg); border: 1px solid var(--gray-200);
+        }
+        .card-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 25px; padding-bottom: 20px; border-bottom: 2px solid var(--gray-100);
+        }
+        .card-title {
+            font-size: 1.5rem; font-weight: 700; color: var(--gray-900);
+            display: flex; align-items: center; gap: 12px;
+        }
+        .card-title .icon {
+            width: 40px; height: 40px; background: var(--primary-light); color: var(--primary);
+            border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px; margin-bottom: 30px;
+        }
+        .stat-card {
+            background: white; border-radius: 12px; padding: 25px;
+            border-left: 4px solid var(--primary); box-shadow: var(--shadow);
+        }
+        .stat-card.success { border-left-color: var(--success); }
+        .stat-card.warning { border-left-color: var(--warning); }
+        .stat-card.danger { border-left-color: var(--danger); }
+        .stat-card.info { border-left-color: var(--info); }
+        .stat-label {
+            font-size: 0.875rem; color: var(--gray-700); text-transform: uppercase;
+            letter-spacing: 0.5px; font-weight: 600; margin-bottom: 8px;
+        }
+        .stat-value { font-size: 2.25rem; font-weight: 700; color: var(--gray-900); }
+        .stat-card.success .stat-value { color: var(--success); }
+        .stat-card.warning .stat-value { color: var(--warning); }
+        .stat-card.danger .stat-value { color: var(--danger); }
+        .stat-card.info .stat-value { color: var(--info); }
+
+        /* Upload Zone */
+        .upload-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px; margin-bottom: 30px;
+        }
+        .upload-card {
+            border: 3px dashed var(--gray-300); border-radius: 16px; padding: 40px 30px;
+            text-align: center; transition: all 0.3s ease; background: var(--gray-50); cursor: pointer;
+        }
+        .upload-card:hover { border-color: var(--primary); background: var(--primary-light); }
+        .upload-card.has-file { border-color: var(--success); background: var(--success-light); border-style: solid; }
+        .upload-icon { font-size: 4rem; margin-bottom: 15px; }
+        .upload-card h3 { font-size: 1.25rem; font-weight: 700; margin-bottom: 10px; }
+        .upload-card p { color: var(--gray-700); margin-bottom: 20px; }
+        .file-input-wrapper input[type="file"] { display: none; }
+        .file-input-label {
+            display: inline-block; padding: 12px 24px; background: var(--primary); color: white;
+            border-radius: 8px; font-weight: 600; cursor: pointer;
+        }
+        .file-input-label:hover { background: var(--primary-dark); }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600;
+            font-size: 0.95rem; cursor: pointer; transition: all 0.3s ease;
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-group { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 25px; }
+
+        /* Alert Messages */
+        .alert {
+            padding: 16px 20px; border-radius: 12px; margin-bottom: 25px;
+            display: flex; align-items: flex-start; gap: 12px;
+        }
+        .alert-info { background: var(--info-light); border-left: 4px solid var(--info); color: #0e7490; }
+        .alert-success { background: var(--success-light); border-left: 4px solid var(--success); color: #047857; }
+        .alert-warning { background: var(--warning-light); border-left: 4px solid var(--warning); color: #92400e; }
+
+        /* Table Styles */
+        .table-container {
+            overflow-x: auto; border-radius: 12px; border: 1px solid var(--gray-200); box-shadow: var(--shadow);
+        }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .data-table thead { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; }
+        .data-table th {
+            padding: 16px 12px; text-align: left; font-weight: 700; text-transform: uppercase;
+            font-size: 0.8rem; letter-spacing: 0.5px; white-space: nowrap;
+        }
+        .data-table td { padding: 14px 12px; border-bottom: 1px solid var(--gray-200); vertical-align: middle; }
+        .data-table tbody tr:hover { background: var(--gray-50); }
+        .data-table tbody tr:nth-child(even) { background: var(--gray-50); }
+
+        /* Status Badges */
+        .status-badge {
+            display: inline-flex; align-items: center; padding: 6px 12px;
+            border-radius: 20px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+        }
+        .status-ok { background: var(--success-light); color: var(--success); }
+        .status-warn { background: var(--warning-light); color: var(--warning); }
+        .status-error { background: var(--danger-light); color: var(--danger); }
+
+        /* Sheet Selector */
+        .sheet-selector {
+            background: var(--gray-50); border-radius: 12px; padding: 25px;
+            margin-bottom: 25px; border: 2px solid var(--gray-200);
+        }
+        .sheet-list {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px; margin-top: 20px;
+        }
+        .sheet-item {
+            display: flex; align-items: center; gap: 12px; padding: 16px;
+            background: white; border: 2px solid var(--gray-200); border-radius: 10px; cursor: pointer;
+        }
+        .sheet-item:hover { border-color: var(--primary); }
+        .sheet-item.selected { border-color: var(--primary); background: var(--primary-light); }
+        .sheet-item input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; }
+
+        /* Progress Bar */
+        .progress-container { margin: 25px 0; }
+        .progress-bar {
+            height: 12px; background: var(--gray-200); border-radius: 6px; overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%; background: linear-gradient(90deg, var(--primary) 0%, var(--success) 100%);
+            border-radius: 6px; transition: width 0.5s ease; width: 0%;
+        }
+        .progress-text { text-align: center; margin-top: 10px; font-weight: 600; color: var(--gray-700); }
+
+        /* Log Area */
+        .log-section { margin-top: 30px; }
+        .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .log-area {
+            background: var(--gray-900); color: #e5e7eb; border-radius: 12px; padding: 20px;
+            font-family: 'Consolas', monospace; font-size: 0.85rem; max-height: 400px;
+            overflow-y: auto; line-height: 1.8; box-shadow: var(--shadow-lg);
+        }
+        .log-entry { margin-bottom: 6px; }
+        .log-info { color: #60a5fa; }
+        .log-success { color: #4ade80; }
+        .log-warning { color: #fbbf24; }
+        .log-error { color: #f87171; }
+
+        /* Filters */
+        .filter-bar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        .filter-bar input, .filter-bar select {
+            padding: 10px 16px; border: 2px solid var(--gray-200); border-radius: 8px; font-size: 0.9rem;
+        }
+        .filter-bar input { flex: 1; min-width: 250px; }
+
+        code {
+            background: var(--gray-100); padding: 2px 6px; border-radius: 4px;
+            font-family: 'Consolas', monospace; font-size: 0.9em; color: var(--danger);
+        }
+
+        .preview-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px; margin-top: 20px;
+        }
+        .preview-item {
+            background: var(--gray-50); padding: 15px; border-radius: 8px; border-left: 3px solid var(--primary);
+        }
+        .preview-item .label { font-size: 0.8rem; color: var(--gray-700); text-transform: uppercase; font-weight: 600; margin-bottom: 5px; }
+        .preview-item .value { font-size: 1.5rem; font-weight: 700; color: var(--gray-900); }
+    </style>
+</head>
+<body>
+
+    <!-- LOGIN SCREEN -->
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-box">
+            <h2>🔐 Đăng Nhập Hệ Thống</h2>
+            <p>Hệ Thống Quản Lý Kho Sợi Dệt - SLM 2026</p>
+            <div class="login-error" id="loginError">Mật khẩu không chính xác!</div>
+            <input type="password" class="login-input" id="loginPassword" placeholder="Nhập mật khẩu..." onkeypress="if(event.key==='Enter') doLogin()">
+            <button class="login-btn" onclick="doLogin()">Đăng Nhập</button>
+            <span class="login-link" onclick="showChangePasswordModal()">Đổi mật khẩu</span>
+        </div>
+    </div>
+
+    <!-- CHANGE PASSWORD MODAL -->
+    <div class="modal-overlay" id="changePasswordModal">
+        <div class="modal-box">
+            <h3>🔑 Đổi Mật Khẩu</h3>
+            <p style="color:var(--gray-700);margin-bottom:20px;">Vui lòng nhập số điện thoại chủ sở hữu để xác thực:</p>
+            <input type="text" class="login-input" id="phoneInput" placeholder="Nhập số điện thoại..." onkeypress="if(event.key==='Enter') verifyPhone()">
+            <div class="login-error" id="phoneError">Số điện thoại không chính xác!</div>
+            <div id="newPasswordSection" style="display:none;">
+                <input type="password" class="login-input" id="newPassword" placeholder="Mật khẩu mới...">
+                <input type="password" class="login-input" id="confirmPassword" placeholder="Xác nhận mật khẩu mới...">
+            </div>
+            <div style="display:flex;gap:12px;margin-top:10px;">
+                <button class="login-btn" id="phoneVerifyBtn" onclick="verifyPhone()" style="background:var(--primary);">Xác thực</button>
+                <button class="login-btn" id="savePasswordBtn" onclick="saveNewPassword()" style="display:none;background:var(--success);">Lưu mật khẩu</button>
+                <button class="login-btn" onclick="closeChangePasswordModal()" style="background:var(--gray-300);color:var(--gray-700);">Hủy</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div class="container" id="mainApp">
+        <!-- Header -->
+        <div class="header">
+            <button class="logout-btn" onclick="doLogout()">🚪 Đăng xuất</button>
+            <h1>🧵 HỆ THỐNG QUẢN LÝ KHO SỢI DỆT</h1>
+            <p>Tự động hóa quy trình điền kho - Phiên bản 2026.06.25</p>
+            <span class="badge-version">v12.0 Enterprise (Preserve Format)</span>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="nav-tabs">
+            <button class="nav-tab active" onclick="switchTab('upload', event)">📁 Upload & Đọc File <span class="badge" id="badgeUpload">Chờ</span></button>
+            <button class="nav-tab" onclick="switchTab('review', event)">📋 Xem Dữ Liệu <span class="badge" id="badgeReview">0 dòng</span></button>
+            <button class="nav-tab" onclick="switchTab('validation', event)">✅ Kiểm Tra <span class="badge" id="badgeValidation">0</span></button>
+            <button class="nav-tab" onclick="switchTab('discrepancy', event)">⚠️ Sai Lệch <span class="badge" id="badgeDiscrepancy">0</span></button>
+            <button class="nav-tab" onclick="switchTab('process', event)">⚙️ Xử Lý <span class="badge" id="badgeProcess">Chờ</span></button>
+            <button class="nav-tab" onclick="switchTab('export', event)">💾 Xuất File <span class="badge" id="badgeExport">Chờ</span></button>
+        </nav>
+
+        <!-- Tab 1: Upload -->
+        <div id="tab-upload" class="tab-content active">
+            <div class="alert alert-info">
+                <strong>💡 Hướng dẫn:</strong> Upload File Nguồn (BB 25.xlsx) và File Đích. 
+                Hệ thống <b>CHỈ ĐỌC CỘT B & C</b>, tự động <b>BỎ QUA mã có dấu chấm</b> (VD: VG6133.5D).
+                <br>✨ <b>Đặc biệt:</b> File đích sẽ được bảo toàn 100% định dạng (màu sắc, font, border...).
+            </div>
+            <div class="upload-grid">
+                <div class="upload-card" id="uploadCard1">
+                    <div class="upload-icon">📄</div>
+                    <h3>File Nguồn: BB 25.xlsx</h3>
+                    <p>Chỉ đọc Cột B (Lượt lô) & Cột C (Số kiện)</p>
+                    <label class="file-input-label">📎 Chọn File <input type="file" id="file1Input" accept=".xlsx" onchange="handleFile1Upload(event)"></label>
+                    <div class="file-info" id="file1Info" style="margin-top:10px; font-weight:bold; color:var(--success);"></div>
+                </div>
+                <div class="upload-card" id="uploadCard2">
+                    <div class="upload-icon">📊</div>
+                    <h3>File Đích: Báo biểu ma trận.xlsx</h3>
+                    <p>File báo biểu cần điền (Bảo toàn định dạng)</p>
+                    <label class="file-input-label">📎 Chọn File <input type="file" id="file2Input" accept=".xlsx" onchange="handleFile2Upload(event)"></label>
+                    <div class="file-info" id="file2Info" style="margin-top:10px; font-weight:bold; color:var(--success);"></div>
+                </div>
+            </div>
+            <div class="card" id="readSection" style="display:none;">
+                <div class="card-header"><h2 class="card-title"><span class="icon">🔄</span>Đọc File Nguồn</h2></div>
+                <p>Chỉ đọc Cột B & C, bỏ qua mã có dấu chấm, cộng dồn nhãn trùng.</p>
+                <div class="btn-group">
+                    <button class="btn btn-primary" id="btnStartRead" onclick="startSingleRead()" disabled>🚀 Bắt đầu đọc</button>
+                    <button class="btn btn-warning" onclick="resetAll()">🔄 Làm mới</button>
+                </div>
+                <div class="progress-container" id="readProgress" style="display:none;">
+                    <div class="progress-bar"><div class="progress-fill" id="readProgressFill"></div></div>
+                    <div class="progress-text" id="readProgressText">Đang đọc...</div>
+                </div>
+            </div>
+            <div class="card" id="previewSection" style="display:none;">
+                <div class="card-header"><h2 class="card-title"><span class="icon">📊</span>Xem trước kết quả</h2></div>
+                <div class="preview-grid" id="previewGrid"></div>
+            </div>
+            <div class="log-section">
+                <div class="log-header"><h3>📝 Nhật ký hệ thống</h3><button class="btn btn-danger" onclick="clearLog()">Xóa log</button></div>
+                <div class="log-area" id="logArea"><div class="log-entry log-info">[Hệ thống] Sẵn sàng. Vui lòng upload 2 file.</div></div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Review -->
+        <div id="tab-review" class="tab-content" style="display:none;">
+            <div class="alert alert-info">📋 <strong>Dữ liệu đã đọc:</strong> Base = 6 ký tự đầu, Col = 2 ký tự cuối. Đã tự động cộng dồn.</div>
+            <div class="stats-grid">
+                <div class="stat-card info"><div class="stat-label">Tổng dòng đã đọc</div><div class="stat-value" id="statTotalRows">0</div></div>
+                <div class="stat-card success"><div class="stat-label">Nhãn duy nhất</div><div class="stat-value" id="statUniqueLabels">0</div></div>
+                <div class="stat-card warning"><div class="stat-label">Nhãn đã cộng dồn</div><div class="stat-value" id="statMerged">0</div></div>
+                <div class="stat-card info"><div class="stat-label">Tổng số lượng</div><div class="stat-value" id="statTotalQty">0</div></div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h2 class="card-title"><span class="icon">📋</span>Danh sách dữ liệu</h2></div>
+                <div class="filter-bar">
+                    <input type="text" id="searchReview" placeholder="🔍 Tìm kiếm..." onkeyup="filterReviewTable()">
+                    <select id="filterStatus" onchange="filterReviewTable()"><option value="">Tất cả</option><option value="ok">✅ OK</option><option value="warn">⚠️ Cảnh báo</option></select>
+                </div>
+                <div class="table-container">
+                    <table class="data-table" id="reviewTable">
+                        <thead><tr><th>STT</th><th>Mã Gốc</th><th>Base (Row)</th><th>Col</th><th>Số Lượng</th><th>Lần xuất hiện</th><th>Trạng Thái</th></tr></thead>
+                        <tbody id="reviewTableBody"><tr><td colspan="7" style="text-align:center;padding:40px;">Chưa có dữ liệu.</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: Validation -->
+        <div id="tab-validation" class="tab-content" style="display:none;">
+            <div class="alert alert-success">✅ <strong>Kiểm tra dữ liệu:</strong> Xác nhận độ chính xác trước khi điền.</div>
+            <div class="stats-grid">
+                <div class="stat-card success"><div class="stat-label">Hợp lệ</div><div class="stat-value" id="valValid">0</div></div>
+                <div class="stat-card warning"><div class="stat-label">Cảnh báo</div><div class="stat-value" id="valWarning">0</div></div>
+                <div class="stat-card danger"><div class="stat-label">Lỗi</div><div class="stat-value" id="valError">0</div></div>
+                <div class="stat-card info"><div class="stat-label">Tổng</div><div class="stat-value" id="valTotal">0</div></div>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="runValidation()">🔍 Chạy kiểm tra</button>
+                <button class="btn btn-success" onclick="confirmValidation()">✅ Xác nhận & Tiếp tục</button>
+            </div>
+        </div>
+
+        <!-- Tab 4: Discrepancy -->
+        <div id="tab-discrepancy" class="tab-content" style="display:none;">
+            <div class="alert alert-warning">⚠️ <strong>Các nhãn không tìm thấy vị trí trong File Đích:</strong></div>
+            <div class="stats-grid">
+                <div class="stat-card warning"><div class="stat-label">Không tìm thấy Base</div><div class="stat-value" id="statNoBase">0</div></div>
+                <div class="stat-card danger"><div class="stat-label">Không tìm thấy Col</div><div class="stat-value" id="statNoCol">0</div></div>
+                <div class="stat-card info"><div class="stat-label">Tổng không khớp</div><div class="stat-value" id="statTotalMismatch">0</div></div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h2 class="card-title"><span class="icon">⚠️</span>Danh sách sai lệch</h2></div>
+                <div class="table-container">
+                    <table class="data-table" id="discrepancyTable">
+                        <thead><tr><th>STT</th><th>Mã Gốc</th><th>Base</th><th>Col</th><th>Số Lượng</th><th>Lý do</th></tr></thead>
+                        <tbody id="discrepancyTableBody"><tr><td colspan="6" style="text-align:center;padding:40px;">Chưa có dữ liệu.</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 5: Process -->
+        <div id="tab-process" class="tab-content" style="display:none;">
+            <div class="alert alert-info">⚙️ <strong>Xử lý & Điền:</strong> Chọn sheet đích. Hệ thống dùng ExcelJS để <b>GIỮ NGUYÊN 100% MÀU SẮC, FONT, BORDER</b> của file gốc.</div>
+            <div class="sheet-selector">
+                <h3>📋 Chọn Sheet Đích</h3>
+                <div style="margin-top:12px;"><label><input type="checkbox" id="selectAllSheets" onchange="toggleSelectAllSheets()"> Chọn tất cả</label></div>
+                <div class="sheet-list" id="sheetList"><p style="padding:25px;text-align:center;">Chưa có File Đích.</p></div>
+            </div>
+            <div class="btn-group"><button class="btn btn-primary" id="btnProcess" onclick="startProcessing()" disabled>⚙️ Bắt đầu xử lý & điền</button></div>
+            <div class="progress-container" id="processProgress" style="display:none;">
+                <div class="progress-bar"><div class="progress-fill" id="processProgressFill"></div></div>
+                <div class="progress-text" id="processProgressText">Đang xử lý...</div>
+            </div>
+            <div class="stats-grid" id="processStats" style="display:none;">
+                <div class="stat-card info"><div class="stat-label">Tổng items</div><div class="stat-value" id="procTotal">0</div></div>
+                <div class="stat-card success"><div class="stat-label">Thành công</div><div class="stat-value" id="procSuccess">0</div></div>
+                <div class="stat-card warning"><div class="stat-label">Không tìm thấy</div><div class="stat-value" id="procNotFound">0</div></div>
+                <div class="stat-card info"><div class="stat-label">Sheets</div><div class="stat-value" id="procSheets">0</div></div>
+            </div>
+            <div class="log-section">
+                <div class="log-header"><h3>📝 Nhật ký xử lý</h3><button class="btn btn-danger" onclick="clearProcessLog()">Xóa</button></div>
+                <div class="log-area" id="processLogArea"><div class="log-entry log-info">[Xử lý] Chờ bắt đầu...</div></div>
+            </div>
+        </div>
+
+        <!-- Tab 6: Export -->
+        <div id="tab-export" class="tab-content" style="display:none;">
+            <div class="alert alert-success">✅ <strong>Xuất file:</strong> File tải xuống giữ nguyên 100% định dạng gốc.</div>
+            <div class="stats-grid">
+                <div class="stat-card success"><div class="stat-label">Tổng ô đã điền</div><div class="stat-value" id="exportFilled">0</div></div>
+                <div class="stat-card info"><div class="stat-label">Sheet đã xử lý</div><div class="stat-value" id="exportSheets">0</div></div>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-success" id="btnExport" onclick="exportResult()" disabled>💾 Tải xuống file (.xlsx)</button>
+                <button class="btn btn-primary" onclick="resetAll()">🔄 Làm mới</button>
+            </div>
+            <div class="log-section">
+                <div class="log-header"><h3>📝 Nhật ký xuất file</h3></div>
+                <div class="log-area" id="exportLogArea"><div class="log-entry log-info">[Xuất] Chờ xử lý...</div></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // LOGIN SYSTEM
+        // ============================================
+        const OWNER_PHONE = "0335099905";
+        let storedPass = localStorage.getItem('slm_pass') || "admin1234";
+
+        function doLogin() {
+            const input = document.getElementById('loginPassword').value;
+            if (input === storedPass) {
+                document.getElementById('loginOverlay').classList.add('hidden');
+                document.getElementById('mainApp').style.display = 'block';
+                document.getElementById('loginError').style.display = 'none';
+                log('🔓 Đăng nhập thành công!', 'success');
+            } else {
+                document.getElementById('loginError').style.display = 'block';
+            }
+        }
+
+        function doLogout() {
+            if(confirm('Bạn có chắc muốn đăng xuất?')) {
+                document.getElementById('loginOverlay').classList.remove('hidden');
+                document.getElementById('mainApp').style.display = 'none';
+                document.getElementById('loginPassword').value = '';
+            }
+        }
+
+        function showChangePasswordModal() {
+            document.getElementById('changePasswordModal').classList.add('active');
+            document.getElementById('phoneInput').value = '';
+            document.getElementById('newPasswordSection').style.display = 'none';
+            document.getElementById('phoneVerifyBtn').style.display = 'inline-flex';
+            document.getElementById('savePasswordBtn').style.display = 'none';
+            document.getElementById('phoneError').style.display = 'none';
+        }
+
+        function closeChangePasswordModal() {
+            document.getElementById('changePasswordModal').classList.remove('active');
+        }
+
+        function verifyPhone() {
+            const phone = document.getElementById('phoneInput').value.trim();
+            if (phone === OWNER_PHONE) {
+                document.getElementById('phoneError').style.display = 'none';
+                document.getElementById('newPasswordSection').style.display = 'block';
+                document.getElementById('phoneVerifyBtn').style.display = 'none';
+                document.getElementById('savePasswordBtn').style.display = 'inline-flex';
+            } else {
+                document.getElementById('phoneError').style.display = 'block';
+            }
+        }
+
+        function saveNewPassword() {
+            const p1 = document.getElementById('newPassword').value;
+            const p2 = document.getElementById('confirmPassword').value;
+            if (!p1 || p1.length < 4) { alert('Mật khẩu phải có ít nhất 4 ký tự!'); return; }
+            if (p1 !== p2) { alert('Mật khẩu xác nhận không khớp!'); return; }
+            storedPass = p1;
+            localStorage.setItem('slm_pass', p1);
+            alert('✅ Đổi mật khẩu thành công!');
+            closeChangePasswordModal();
+        }
+
+        // ============================================
+        // GLOBAL VARIABLES
+        // ============================================
+        let file1Workbook = null;
+        let file2Workbook = null; // ExcelJS Workbook
+        let file2ArrayBuffer = null;
+        let selectedSheets = [];
+        let finalData = [];
+        let allRawRecords = [];
+        let discrepancies = [];
+        let validationResults = { valid: 0, warning: 0, error: 0, total: 0 };
+        let processStats = { total: 0, success: 0, notFound: 0, sheets: 0 };
+        let totalFilledCells = 0;
+
+        // ============================================
+        // TAB SWITCHING & LOGGING
+        // ============================================
+        function switchTab(tabName, event) {
+            document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+            document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + tabName).style.display = 'block';
+            if (event && event.target.closest('.nav-tab')) event.target.closest('.nav-tab').classList.add('active');
+        }
+
+        function log(msg, type = 'info') {
+            const area = document.getElementById('logArea');
+            const time = new Date().toLocaleTimeString();
+            area.innerHTML += `<div class="log-entry log-${type}">[${time}] ${msg}</div>`;
+            area.scrollTop = area.scrollHeight;
+        }
+        function processLog(msg, type = 'info') {
+            const area = document.getElementById('processLogArea');
+            const time = new Date().toLocaleTimeString();
+            area.innerHTML += `<div class="log-entry log-${type}">[${time}] ${msg}</div>`;
+            area.scrollTop = area.scrollHeight;
+        }
+        function exportLog(msg, type = 'info') {
+            const area = document.getElementById('exportLogArea');
+            const time = new Date().toLocaleTimeString();
+            area.innerHTML += `<div class="log-entry log-${type}">[${time}] ${msg}</div>`;
+            area.scrollTop = area.scrollHeight;
+        }
+        function clearLog() { document.getElementById('logArea').innerHTML = ''; log('Đã xóa log.', 'info'); }
+        function clearProcessLog() { document.getElementById('processLogArea').innerHTML = ''; processLog('Đã xóa log.', 'info'); }
+
+        // ============================================
+        // CORE LOGIC: PARSE CODE & CLEAN QTY
+        // ============================================
+        function parseCode(rawCode) {
+            if (!rawCode) return null;
+            let code = String(rawCode).trim();
+            
+            // 1. BỎ QUA nếu có dấu chấm (VD: VG6133.5D, VB6122.4E)
+            if (code.includes('.')) return null;
+
+            // 2. Loại bỏ phần trong ngoặc kép nếu có (VD: VK5B08 (A02.4D) -> đã bị loại ở trên, nhưng nếu là VK5B08 (TA5B06) thì vẫn xử lý)
+            if (code.includes('(')) {
+                code = code.split('(')[0].trim();
+                if (code.includes('.')) return null;
+            }
+
+            // 3. Kiểm tra độ dài (Cần ít nhất 8 ký tự: 6 cho Base + 2 cho Col)
+            if (code.length < 8) return null;
+
+            // 4. Cắt chuỗi: 6 ký tự đầu làm Base, 2 ký tự cuối làm Col
+            const base = code.substring(0, 6).toUpperCase();
+            const col = code.substring(code.length - 2).toUpperCase();
+
+            // 5. Validate
+            if (!/^[A-Z0-9]+$/.test(base) || !/^[A-Z0-9]+$/.test(col)) return null;
+
+            return { original: String(rawCode).trim(), base: base, col: col };
+        }
+
+        function cleanQuantity(rawQty) {
+            if (!rawQty) return 0;
+            let str = String(rawQty).replace(/,/g, '').replace(/\s/g, '');
+            if (str === '-0' || str === '-' || str === '') return 0;
+            let num = parseFloat(str);
+            return isNaN(num) ? 0 : num;
+        }
+
+        function isHeaderRow(cellValue) {
+            if (!cellValue) return true;
+            let str = String(cellValue).toLowerCase();
+            return str.includes('lượt lô') || str.includes('mã family') || str.includes('批号') || 
+                   str.includes('tồn kho') || str.includes('本日') || str.includes('件数') || 
+                   str.includes('số kiện') || str.includes('quản lý') || str.includes('a.nam');
+        }
+
+        // ============================================
+        // FILE UPLOAD HANDLERS
+        // ============================================
+        function handleFile1Upload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            log(`Đang tải File Nguồn: ${file.name}...`, 'info');
+            document.getElementById('uploadCard1').classList.add('has-file');
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    file1Workbook = XLSX.read(data, { type: 'array' });
+                    log(`✅ File Nguồn đã tải: ${file1Workbook.SheetNames.length} sheets`, 'success');
+                    document.getElementById('file1Info').textContent = `✅ ${file.name}`;
+                    document.getElementById('readSection').style.display = 'block';
+                    document.getElementById('btnStartRead').disabled = false;
+                    checkReadyToRead();
+                } catch (err) { log(`❌ Lỗi: ${err.message}`, 'error'); }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function handleFile2Upload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            log(`Đang tải File Đích: ${file.name}...`, 'info');
+            document.getElementById('uploadCard2').classList.add('has-file');
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    file2ArrayBuffer = e.target.result;
+                    file2Workbook = new ExcelJS.Workbook();
+                    await file2Workbook.xlsx.load(file2ArrayBuffer);
+                    log(`✅ File Đích đã tải (ExcelJS): ${file2Workbook.worksheets.length} sheets - Bảo toàn định dạng`, 'success');
+                    document.getElementById('file2Info').textContent = `✅ ${file.name} (Giữ nguyên format)`;
+                    renderSheetList();
+                    checkReadyToRead();
+                } catch (err) { log(`❌ Lỗi: ${err.message}`, 'error'); }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function checkReadyToRead() {
+            document.getElementById('btnStartRead').disabled = !(file1Workbook && file2Workbook);
+        }
+
+        // ============================================
+        // SINGLE READ FUNCTION (CHỈ ĐỌC CỘT B & C)
+        // ============================================
+        async function startSingleRead() {
+            if (!file1Workbook) { alert('Vui lòng chọn File Nguồn!'); return; }
+            document.getElementById('readProgress').style.display = 'block';
+            document.getElementById('btnStartRead').disabled = true;
+            document.getElementById('readProgressFill').style.width = '0%';
+            document.getElementById('readProgressText').textContent = 'Đang đọc Cột B & C...';
+
+            log('🚀 Bắt đầu đọc Sheet 1, CHỈ CỘT B (Lượt lô) & CỘT C (Số kiện)...', 'info');
+            log('📌 Quy tắc: Bỏ qua mã có dấu chấm. Base = 6 ký tự đầu, Col = 2 ký tự cuối.', 'info');
+
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            try {
+                const sheetName = file1Workbook.SheetNames[0];
+                const sheet = file1Workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+                log(`📊 Sheet "${sheetName}" có ${jsonData.length} dòng`, 'info');
+                document.getElementById('readProgressFill').style.width = '20%';
+
+                const maCol = 1; // Cột B (Index 1)
+                const qtyCol = 2; // Cột C (Index 2)
+
+                allRawRecords = [];
+                let totalRows = 0, validRows = 0, skippedRows = 0, dotSkipped = 0;
+
+                for (let i = 0; i < jsonData.length; i++) {
+                    const row = jsonData[i];
+                    if (!row || row.length <= qtyCol) continue;
+
+                    const rawCode = row[maCol];
+                    const rawQty = row[qtyCol];
+
+                    if (isHeaderRow(rawCode)) continue;
+                    if (!rawCode) continue;
+
+                    totalRows++;
+                    
+                    // Kiểm tra và bỏ qua mã có dấu chấm
+                    if (String(rawCode).includes('.')) {
+                        dotSkipped++;
+                        skippedRows++;
+                        continue;
+                    }
+
+                    const qty = cleanQuantity(rawQty);
+                    if (qty <= 0) { skippedRows++; continue; }
+
+                    const parsed = parseCode(rawCode);
+                    if (parsed) {
+                        allRawRecords.push({
+                            original: parsed.original, base: parsed.base, col: parsed.col,
+                            qty: qty, sheet: sheetName, row: i + 1
+                        });
+                        validRows++;
+                    } else {
+                        skippedRows++;
+                    }
+
+                    if (i % 200 === 0) {
+                        const progress = 20 + (i / jsonData.length) * 60;
+                        document.getElementById('readProgressFill').style.width = `${progress}%`;
+                    }
+                }
+
+                log(`📊 Đã đọc ${totalRows} dòng. ✅ ${validRows} hợp lệ. ⏭️ ${dotSkipped} bỏ qua (có dấu chấm). ❌ ${skippedRows - dotSkipped} bỏ qua khác.`, 'info');
+                document.getElementById('readProgressFill').style.width = '80%';
+                document.getElementById('readProgressText').textContent = 'Đang cộng dồn dữ liệu...';
+
+                // Cộng dồn dữ liệu
+                const dataMap = new Map();
+                let mergedCount = 0;
+                allRawRecords.forEach(record => {
+                    const key = `${record.base}|${record.col}`;
+                    if (dataMap.has(key)) {
+                        const existing = dataMap.get(key);
+                        existing.qty += record.qty;
+                        existing.count += 1;
+                        if (!existing.originals.includes(record.original)) existing.originals.push(record.original);
+                        mergedCount++;
+                    } else {
+                        dataMap.set(key, { base: record.base, col: record.col, qty: record.qty, count: 1, originals: [record.original] });
+                    }
+                });
+
+                finalData = [];
+                dataMap.forEach((value) => finalData.push({ ...value, status: 'ok' }));
+                finalData.sort((a, b) => a.base.localeCompare(b.base) || a.col.localeCompare(b.col));
+
+                const uniqueLabels = finalData.length;
+                const totalQty = finalData.reduce((sum, item) => sum + item.qty, 0);
+
+                log(`✅ Tổng hợp: ${uniqueLabels} nhãn duy nhất, ${mergedCount} nhãn đã cộng dồn. 💰 Tổng SL: ${totalQty.toLocaleString()}`, 'success');
+                document.getElementById('readProgressFill').style.width = '100%';
+                document.getElementById('readProgressText').textContent = 'Hoàn tất!';
+
+                updateStats(); renderReviewTable(); updateBadges();
+                showPreview(uniqueLabels, totalQty, mergedCount, validRows);
+                log('🎉 HOÀN TẤT! Dữ liệu sẵn sàng để điền vào File Đích.', 'success');
+                setTimeout(() => { document.getElementById('readProgress').style.display = 'none'; }, 1000);
+            } catch (err) {
+                log(`❌ Lỗi: ${err.message}`, 'error');
+                document.getElementById('readProgress').style.display = 'none';
+            }
+        }
+
+        // ============================================
+        // UI UPDATES & RENDERING
+        // ============================================
+        function updateStats() {
+            document.getElementById('statTotalRows').textContent = allRawRecords.length;
+            document.getElementById('statUniqueLabels').textContent = finalData.length;
+            document.getElementById('statMerged').textContent = finalData.filter(i => i.count > 1).length;
+            document.getElementById('statTotalQty').textContent = finalData.reduce((s, i) => s + i.qty, 0).toLocaleString();
+        }
+
+        function showPreview(unique, total, merged, valid) {
+            document.getElementById('previewSection').style.display = 'block';
+            document.getElementById('previewGrid').innerHTML = `
+                <div class="preview-item"><div class="label">Bản ghi đọc được</div><div class="value">${allRawRecords.length}</div></div>
+                <div class="preview-item"><div class="label">Nhãn duy nhất</div><div class="value">${unique}</div></div>
+                <div class="preview-item"><div class="label">Đã cộng dồn</div><div class="value">${merged}</div></div>
+                <div class="preview-item"><div class="label">Tổng số lượng</div><div class="value">${total.toLocaleString()}</div></div>`;
+        }
+
+        function renderReviewTable() {
+            const tbody = document.getElementById('reviewTableBody');
+            tbody.innerHTML = '';
+            if (finalData.length === 0) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">Chưa có dữ liệu.</td></tr>'; return; }
+            finalData.forEach((item, idx) => {
+                const tr = document.createElement('tr');
+                tr.dataset.status = item.status;
+                tr.innerHTML = `
+                    <td>${idx + 1}</td>
+                    <td><code>${item.originals[0]}</code>${item.count > 1 ? ` <span style="color:var(--warning);">(×${item.count})</span>` : ''}</td>
+                    <td><strong>${item.base}</strong></td>
+                    <td><strong>${item.col}</strong></td>
+                    <td style="font-weight:bold;color:var(--success);">${item.qty}</td>
+                    <td>${item.count}</td>
+                    <td><span class="status-badge status-${item.status}">${item.status === 'ok' ? '✅ OK' : '⚠️ Warn'}</span></td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function runValidation() {
+            validationResults = { valid: 0, warning: 0, error: 0, total: finalData.length };
+            finalData.forEach(item => {
+                if (item.qty < 0) { validationResults.error++; item.validationStatus = 'error'; }
+                else { validationResults.valid++; item.validationStatus = 'valid'; }
+            });
+            document.getElementById('valValid').textContent = validationResults.valid;
+            document.getElementById('valWarning').textContent = validationResults.warning;
+            document.getElementById('valError').textContent = validationResults.error;
+            document.getElementById('valTotal').textContent = validationResults.total;
+            log(`✅ Kiểm tra: ${validationResults.valid} hợp lệ, ${validationResults.error} lỗi`, 'success');
+        }
+
+        function confirmValidation() {
+            if (validationResults.error > 0 && !confirm(`Có ${validationResults.error} lỗi. Tiếp tục?`)) return;
+            log('✅ Đã xác nhận. Chuyển sang tab Xử lý.', 'success');
+            switchTab('process');
+        }
+
+        function filterReviewTable() {
+            const search = document.getElementById('searchReview').value.toLowerCase();
+            const status = document.getElementById('filterStatus').value;
+            document.querySelectorAll('#reviewTableBody tr').forEach(tr => {
+                const text = tr.textContent.toLowerCase();
+                const trStatus = tr.dataset.status;
+                const matchSearch = !search || text.includes(search);
+                const matchStatus = !status || trStatus === status;
+                tr.style.display = (matchSearch && matchStatus) ? '' : 'none';
+            });
+        }
+
+        function updateBadges() {
+            document.getElementById('badgeReview').textContent = `${finalData.length} dòng`;
+            document.getElementById('badgeReview').style.background = finalData.length > 0 ? 'var(--success)' : '';
+            document.getElementById('badgeProcess').textContent = finalData.length > 0 ? 'Sẵn sàng' : 'Chờ';
+            document.getElementById('badgeProcess').style.background = finalData.length > 0 ? 'var(--success)' : '';
+        }
+
+        function renderSheetList() {
+            if (!file2Workbook) return;
+            const list = document.getElementById('sheetList');
+            list.innerHTML = '';
+            file2Workbook.worksheets.forEach((ws, index) => {
+                const item = document.createElement('div');
+                item.className = 'sheet-item';
+                item.innerHTML = `<input type="checkbox" id="sheet_${index}" value="${ws.name}" onchange="updateSelectedSheets()"><label for="sheet_${index}" style="flex:1;cursor:pointer;">${index + 1}. ${ws.name}</label>`;
+                list.appendChild(item);
+            });
+        }
+
+        function toggleSelectAllSheets() {
+            const checked = document.getElementById('selectAllSheets').checked;
+            document.querySelectorAll('#sheetList input[type="checkbox"]').forEach(cb => { cb.checked = checked; cb.parentElement.classList.toggle('selected', checked); });
+            updateSelectedSheets();
+        }
+
+        function updateSelectedSheets() {
+            selectedSheets = [];
+            document.querySelectorAll('#sheetList input[type="checkbox"]:checked').forEach(cb => { selectedSheets.push(cb.value); cb.parentElement.classList.add('selected'); });
+            document.querySelectorAll('#sheetList input[type="checkbox"]:not(:checked)').forEach(cb => { cb.parentElement.classList.remove('selected'); });
+            document.getElementById('btnProcess').disabled = selectedSheets.length === 0 || finalData.length === 0;
+        }
+
+        // ============================================
+        // PROCESSING (DÙNG EXCELJS GIỮ NGUYÊN FORMAT)
+        // ============================================
+        async function startProcessing() {
+            if (selectedSheets.length === 0 || finalData.length === 0) { alert('Vui lòng chọn sheet và đọc dữ liệu!'); return; }
+            document.getElementById('processProgress').style.display = 'block';
+            document.getElementById('processStats').style.display = 'grid';
+            document.getElementById('btnProcess').disabled = true;
+            processLog('🚀 Bắt đầu xử lý (Bảo toàn định dạng gốc)...', 'info');
+
+            const processedWb = new ExcelJS.Workbook();
+            await processedWb.xlsx.load(file2ArrayBuffer);
+
+            processStats = { total: finalData.length, success: 0, notFound: 0, sheets: 0 };
+            totalFilledCells = 0;
+            discrepancies = [];
+
+            for (let s = 0; s < selectedSheets.length; s++) {
+                const sheetName = selectedSheets[s];
+                processLog(`📄 Đang xử lý sheet: ${sheetName}...`, 'info');
+                const worksheet = processedWb.getWorksheet(sheetName);
+                if (!worksheet) { processLog(`⚠️ Không tìm thấy sheet: ${sheetName}`, 'warning'); continue; }
+
+                // 1. Tìm Row Map (Base codes)
+                const rowMap = {};
+                worksheet.eachRow((row, rowNumber) => {
+                    for (let c = 1; c <= 3; c++) {
+                        const cell = row.getCell(c);
+                        if (cell.value) {
+                            const val = String(cell.value).trim().toUpperCase();
+                            if (val.length >= 4 && /^[A-Z0-9]+$/.test(val) && !rowMap[val]) rowMap[val] = rowNumber;
+                        }
+                    }
+                });
+
+                // 2. Tìm Col Map (Column headers)
+                const colMap = {};
+                const maxScanRow = Math.min(15, worksheet.rowCount);
+                for (let r = 1; r <= maxScanRow; r++) {
+                    const row = worksheet.getRow(r);
+                    row.eachCell((cell, colNumber) => {
+                        if (cell.value) {
+                            const val = String(cell.value).trim().toUpperCase();
+                            if (/^[A-Z]\d{1,2}$/.test(val) || /^[A-Z0-9]{2}$/.test(val) && !colMap[val]) colMap[val] = colNumber;
+                        }
+                    });
+                }
+
+                processLog(`  → Tìm thấy ${Object.keys(rowMap).length} Base, ${Object.keys(colMap).length} Cột đích.`, 'debug');
+
+                let sheetFilled = 0, sheetNotFound = 0;
+                finalData.forEach(item => {
+                    const r = rowMap[item.base];
+                    let c = colMap[item.col];
+                    if (!c && item.col.length === 2) c = colMap[item.col[1] + item.col[0]]; // Thử đảo ngược
+
+                    if (r !== undefined && c !== undefined) {
+                        const cell = worksheet.getCell(r, c);
+                        cell.value = item.qty; // CHỈ GÁN VALUE, EXCELJS TỰ GIỮ NGUYÊN STYLE, FILL, BORDER...
+                        sheetFilled++;
+                        totalFilledCells++;
+                    } else {
+                        sheetNotFound++;
+                        let reason = '';
+                        if (r === undefined) reason += `Thiếu Base "${item.base}" `;
+                        if (c === undefined) reason += `Thiếu Col "${item.col}"`;
+                        discrepancies.push({ ...item, status: r === undefined ? 'error' : 'warn', reason: reason });
+                    }
+                });
+
+                processStats.success += sheetFilled;
+                processStats.notFound += sheetNotFound;
+                processStats.sheets++;
+                processLog(`  ✅ ${sheetName}: Điền ${sheetFilled} ô, ${sheetNotFound} không tìm thấy.`, sheetFilled > 0 ? 'success' : 'warning');
+                
+                const progress = ((s + 1) / selectedSheets.length) * 100;
+                document.getElementById('processProgressFill').style.width = `${progress}%`;
+            }
+
+            window.processedWorkbook = processedWb;
+            document.getElementById('procTotal').textContent = processStats.total;
+            document.getElementById('procSuccess').textContent = processStats.success;
+            document.getElementById('procNotFound').textContent = processStats.notFound;
+            document.getElementById('procSheets').textContent = processStats.sheets;
+
+            processLog(`🎉 Hoàn tất! Đã điền ${processStats.success} ô.✨ 100% Format được bảo toàn!`, 'success');
+            document.getElementById('processProgress').style.display = 'none';
+            document.getElementById('btnExport').disabled = false;
+            
+            // Render discrepancy
+            const tbody = document.getElementById('discrepancyTableBody');
+            tbody.innerHTML = '';
+            discrepancies.forEach((item, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${idx + 1}</td><td><code>${item.originals[0]}</code></td><td>${item.base}</td><td>${item.col}</td><td>${item.qty}</td><td style="color:var(--danger);">${item.reason}</td>`;
+                tbody.appendChild(tr);
+            });
+            document.getElementById('statNoBase').textContent = discrepancies.filter(d => d.reason.includes('Base')).length;
+            document.getElementById('statNoCol').textContent = discrepancies.filter(d => d.reason.includes('Col')).length;
+            document.getElementById('statTotalMismatch').textContent = discrepancies.length;
+            document.getElementById('badgeDiscrepancy').textContent = discrepancies.length;
+
+            setTimeout(() => { switchTab('export'); }, 1000);
+        }
+
+        // ============================================
+        // EXPORT (DÙNG EXCELJS)
+        // ============================================
+        async function exportResult() {
+            if (!window.processedWorkbook) { alert('Chưa có dữ liệu!'); return; }
+            exportLog('📦 Đang tạo file xuất (Bảo toàn định dạng)...', 'info');
+            try {
+                const buffer = await window.processedWorkbook.xlsx.writeBuffer();
+                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `File_DaTuDien_${new Date().getTime()}.xlsx`;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                exportLog(`✅ File đã tải xuống! (${totalFilledCells} ô đã điền)`, 'success');
+                document.getElementById('exportFilled').textContent = totalFilledCells;
+                document.getElementById('exportSheets').textContent = processStats.sheets;
+            } catch (err) { exportLog(`❌ Lỗi: ${err.message}`, 'error'); }
+        }
+
+        // ============================================
+        // RESET
+        // ============================================
+        function resetAll() {
+            if (!confirm('Làm mới toàn bộ?')) return;
+            file1Workbook = null; file2Workbook = null; file2ArrayBuffer = null; window.processedWorkbook = null;
+            selectedSheets = []; finalData = []; allRawRecords = []; discrepancies = [];
+            document.getElementById('file1Input').value = ''; document.getElementById('file2Input').value = '';
+            document.getElementById('file1Info').textContent = ''; document.getElementById('file2Info').textContent = '';
+            document.getElementById('uploadCard1').classList.remove('has-file'); document.getElementById('uploadCard2').classList.remove('has-file');
+            document.getElementById('readSection').style.display = 'none'; document.getElementById('previewSection').style.display = 'none';
+            document.getElementById('btnStartRead').disabled = true; document.getElementById('btnProcess').disabled = true; document.getElementById('btnExport').disabled = true;
+            document.getElementById('sheetList').innerHTML = '<p style="padding:25px;text-align:center;">Chưa có File Đích.</p>';
+            document.getElementById('reviewTableBody').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">Chưa có dữ liệu.</td></tr>';
+            document.getElementById('discrepancyTableBody').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;">Chưa có dữ liệu.</td></tr>';
+            ['statTotalRows','statUniqueLabels','statMerged','statTotalQty','statNoBase','statNoCol','statTotalMismatch','procTotal','procSuccess','procNotFound','procSheets','exportFilled','exportSheets','valValid','valWarning','valError','valTotal'].forEach(id => document.getElementById(id).textContent = '0');
+            ['badgeUpload','badgeReview','badgeValidation','badgeDiscrepancy','badgeProcess','badgeExport'].forEach(id => { document.getElementById(id).textContent = 'Chờ'; document.getElementById(id).style.background = ''; });
+            clearLog(); log('🔄 Hệ thống đã làm mới.', 'info');
+        }
+    </script>
+</body>
+</html>
